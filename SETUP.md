@@ -48,6 +48,15 @@ It must print `Python 3.12.x`.
 
 The weights alone cannot run. The model needs the authors' inference code.
 
+**Option 0, if you cloned this portal from GitHub:** the authors' repo is a git submodule pinned to the
+tested commit. Fetch it with:
+
+```bash
+git submodule update --init
+```
+
+(or clone with `git clone --recurse-submodules`). Then skip to step 4.
+
 **Option A, with git** (run from `C:\tools\ming-tts-portal`):
 
 ```bash

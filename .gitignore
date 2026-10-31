@@ -1,8 +1,8 @@
 .venv/
 .uvpython/
 outputs/
-models/
-vendor/
+models/*
 __pycache__/
 *.pyc
 *.zip
+!models/README.md
