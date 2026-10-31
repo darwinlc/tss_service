@@ -1,0 +1,4 @@
+# Optional. Ships an ffmpeg.exe inside the wheel; the portal then uses it for time-stretching.
+# Without it (or with MING_STRETCH=python) the portal uses a built-in numpy stretcher and
+# runs no external executables. Skip this file where executables are restricted.
+imageio-ffmpeg==0.7.0

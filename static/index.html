@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cue Voice Studio</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #ffffff; --ink: #1c2330; --muted: #667085; --line: #e3e6ec;
+    --accent: #2f5bea; --accent-ink: #ffffff; --ok: #1a7f4b; --warn: #b26a00; --bad: #c0362c;
+    --chip: #eef1f6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #11141a; --panel: #1a1f29; --ink: #e8ebf2; --muted: #9aa4b5; --line: #2a3140;
+      --accent: #6f8cff; --accent-ink: #0d1220; --ok: #4cc38a; --warn: #f0b04a; --bad: #ff7b70;
+      --chip: #252c3a;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 1040px; margin: 0 auto; padding: 24px 16px 64px; }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  h1 { font-size: 22px; margin: 0; }
+  h2 { font-size: 15px; margin: 0 0 12px; }
+  .pill { padding: 3px 10px; border-radius: 999px; background: var(--chip); color: var(--muted); font-size: 13px; }
+  .pill.ready { color: var(--ok); } .pill.error { color: var(--bad); }
+  section { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; margin-top: 16px; }
+  .row { display: flex; gap: 16px; flex-wrap: wrap; align-items: end; }
+  label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
+  select, input[type=number] { font: inherit; color: var(--ink); background: var(--bg);
+         border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; min-width: 120px; }
+  button, .btn { font: inherit; border: 0; border-radius: 6px; padding: 8px 16px; cursor: pointer;
+         background: var(--accent); color: var(--accent-ink); text-decoration: none; display: inline-block; }
+  button.secondary, .btn.secondary { background: var(--chip); color: var(--ink); }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  .drop { border: 2px dashed var(--line); border-radius: 10px; padding: 22px; text-align: center; color: var(--muted); }
+  .drop.over { border-color: var(--accent); color: var(--ink); }
+  .drop code { background: var(--chip); padding: 1px 6px; border-radius: 4px; }
+  .errors { color: var(--bad); margin: 10px 0 0; padding-left: 18px; }
+  .tablewrap { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .03em; }
+  td.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  td.text { min-width: 220px; }
+  .st { font-size: 13px; color: var(--muted); }
+  .st.done { color: var(--ok); } .st.error, .st.too_long { color: var(--bad); }
+  .st.padded { color: var(--warn); } .st.running { color: var(--accent); }
+  .note { display: block; font-size: 12px; color: var(--muted); margin-top: 2px; }
+  audio { height: 32px; width: 220px; }
+  .downloads { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 12px; }
+  .bar { height: 6px; background: var(--chip); border-radius: 3px; overflow: hidden; margin-top: 12px; }
+  .bar > div { height: 100%; background: var(--accent); width: 0; transition: width .3s; }
+  .help { color: var(--muted); font-size: 13px; margin: 8px 0 0; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Cue Voice Studio</h1>
+    <span id="model" class="pill">Model: checking…</span>
+  </header>
+
+  <section>
+    <h2>1. Upload cue file</h2>
+    <div id="drop" class="drop">
+      Drop a file here or <button class="secondary" id="pick" type="button">choose file</button>
+      <input id="file" type="file" accept=".csv,.txt,.tsv" hidden>
+      <p class="help">One cue per line: <code>start, duration, text</code> (CSV) or
+        <code>00:04.5 | 5.0 | text</code>. Times in seconds or mm:ss.</p>
+    </div>
+    <ul id="errors" class="errors" hidden></ul>
+  </section>
+
+  <section id="setup" hidden>
+    <h2>2. Voice and fitting</h2>
+    <div class="row">
+      <label>Voice <select id="voice"></select></label>
+      <label>Fastest allowed (x) <input id="maxTempo" type="number" min="1" max="2" step="0.05" value="1.3"></label>
+      <label>Slowest allowed (x) <input id="minTempo" type="number" min="0.5" max="1" step="0.05" value="0.9"></label>
+      <button id="go" type="button">Generate audio</button>
+      <button id="cancel" class="secondary" type="button" hidden>Cancel</button>
+    </div>
+    <p class="help">The model can't target an exact length, so each line is spoken naturally and
+      then sped up or slowed down (pitch preserved) to fill its duration, within these limits.</p>
+    <div class="bar" id="barWrap" hidden><div id="bar"></div></div>
+  </section>
+
+  <section id="results" hidden>
+    <h2 id="resultsTitle">Cues</h2>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>#</th><th>Start</th><th>Slot</th><th>Text</th><th>Result</th><th>Audio</th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+    <div id="downloads" class="downloads" hidden>
+      <strong>Timeline</strong> <audio id="timeline" controls></audio>
+      <a id="dlTimeline" class="btn" download>timeline.wav</a>
+      <a id="dlZip" class="btn secondary" download>All files (.zip)</a>
+      <a id="dlManifest" class="btn secondary" download>manifest.json</a>
+    </div>
+  </section>
+</main>
+
+<script>
+const $ = (s) => document.querySelector(s);
+let cues = [], jobId = null, timer = null;
+
+const fmt = (n) => (n == null ? "–" : Number(n).toFixed(2) + "s");
+
+async function refreshStatus() {
+  try {
+    const s = await (await fetch("/api/status")).json();
+    const pill = $("#model");
+    pill.className = "pill " + s.model;
+    pill.textContent = s.model === "ready" ? `Model ready (${s.device})`
+      : s.model === "error" ? "Model failed to load" : "Model loading…";
+    pill.title = s.error || `Time-stretch: ${s.stretch}`;
+    if (!$("#voice").options.length) {
+      s.voices.forEach((v) => $("#voice").add(new Option(v, v)));
+    }
+    $("#go").disabled = s.model !== "ready" || !cues.length || !!timer;
+    if (s.model === "loading" || s.model === "idle") setTimeout(refreshStatus, 2000);
+  } catch (e) { setTimeout(refreshStatus, 3000); }
+}
+
+function showErrors(list) {
+  const ul = $("#errors");
+  ul.replaceChildren(...list.map((m) => Object.assign(document.createElement("li"), { textContent: m })));
+  ul.hidden = !list.length;
+}
+
+function renderRows(lines) {
+  const body = $("#rows");
+  body.replaceChildren();
+  for (const l of lines) {
+    const tr = document.createElement("tr");
+    const cell = (cls, text) => { const td = document.createElement("td"); td.className = cls || ""; td.textContent = text; tr.append(td); return td; };
+    cell("num", l.index);
+    cell("num", fmt(l.start));
+    cell("num", fmt(l.duration));
+    cell("text", l.text);
+    const res = cell("");
+    const state = l.state || "pending";
+    const label = { pending: "Pending", running: "Generating…", done: "Done", error: "Error", skipped: "Skipped" }[state] || "Ready";
+    const st = document.createElement("span");
+    st.className = "st " + (l.flag || state);
+    st.textContent = label;
+    res.append(st);
+    if (state === "done") {
+      const note = document.createElement("span");
+      note.className = "note";
+      note.textContent = `natural ${fmt(l.natural)} → ${fmt(l.final)} at ${l.tempo}x`;
+      res.append(note);
+    }
+    if (l.message) {
+      const note = document.createElement("span");
+      note.className = "note";
+      note.textContent = l.message;
+      res.append(note);
+    }
+    const au = document.createElement("td");
+    if (l.file) { const a = document.createElement("audio"); a.controls = true; a.preload = "none"; a.src = l.file; au.append(a); }
+    tr.append(au);
+    body.append(tr);
+  }
+}
+
+async function loadFile(file) {
+  showErrors([]);
+  const form = new FormData();
+  form.append("file", file);
+  const res = await fetch("/api/parse", { method: "POST", body: form });
+  const data = await res.json();
+  if (!res.ok) { cues = []; showErrors(data.errors || ["Could not read the file."]); $("#setup").hidden = true; $("#results").hidden = true; return; }
+  cues = data.cues;
+  jobId = null;
+  $("#setup").hidden = false;
+  $("#results").hidden = false;
+  $("#downloads").hidden = true;
+  $("#resultsTitle").textContent = `${cues.length} cues from ${file.name}`;
+  renderRows(cues.map((c) => ({ ...c, state: "ready" })));
+  refreshStatus();
+}
+
+async function generate() {
+  $("#go").disabled = true;
+  $("#cancel").hidden = false;
+  $("#barWrap").hidden = false;
+  $("#downloads").hidden = true;
+  const body = {
+    cues: cues.map(({ start, duration, text }) => ({ start, duration, text })),
+    voice: $("#voice").value,
+    max_tempo: parseFloat($("#maxTempo").value),
+    min_tempo: parseFloat($("#minTempo").value),
+  };
+  const res = await fetch("/api/jobs", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  if (!res.ok) {
+    const e = await res.json().catch(() => ({}));
+    showErrors([typeof e.detail === "string" ? e.detail : "The settings were rejected; check the speed limits."]);
+    $("#go").disabled = false; $("#cancel").hidden = true; $("#barWrap").hidden = true;
+    return;
+  }
+  showErrors([]);
+  jobId = (await res.json()).id;
+  timer = setInterval(poll, 1000);
+  poll();
+}
+
+async function poll() {
+  const job = await (await fetch(`/api/jobs/${jobId}`)).json();
+  renderRows(job.lines);
+  const done = job.lines.filter((l) => ["done", "error", "skipped"].includes(l.state)).length;
+  $("#bar").style.width = `${(100 * done) / job.lines.length}%`;
+  if (["done", "cancelled", "error"].includes(job.state)) {
+    clearInterval(timer); timer = null;
+    $("#go").disabled = false; $("#cancel").hidden = true;
+    if (job.error) showErrors([job.error]);
+    if (job.timeline) {
+      $("#downloads").hidden = false;
+      $("#timeline").src = job.timeline;
+      $("#dlTimeline").href = job.timeline;
+      $("#dlZip").href = job.zip;
+      $("#dlManifest").href = job.manifest;
+    }
+  }
+}
+
+$("#pick").onclick = () => $("#file").click();
+$("#file").onchange = (e) => e.target.files[0] && loadFile(e.target.files[0]);
+$("#go").onclick = generate;
+$("#cancel").onclick = () => fetch(`/api/jobs/${jobId}/cancel`, { method: "POST" });
+const drop = $("#drop");
+drop.ondragover = (e) => { e.preventDefault(); drop.classList.add("over"); };
+drop.ondragleave = () => drop.classList.remove("over");
+drop.ondrop = (e) => { e.preventDefault(); drop.classList.remove("over"); if (e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]); };
+refreshStatus();
+</script>
+</body>
+</html>

@@ -1,0 +1,5 @@
+start,duration,text
+0.5,4.0,"Welcome to the demo. Today we will build a short animation."
+5.0,3.5,"First, we set up the scene with a simple background."
+9.0,5.0,"Then we add the title, and the numbers 2026 and 42 appear on screen."
+15.0,3.0,"That's all, thanks for watching!"
